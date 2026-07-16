@@ -9,6 +9,14 @@ app.get("/healthz", (_req, res) => {
   res.status(200).json({ ok: true });
 });
 
+// Some PaaS health checks probe "/" by default rather than a configured
+// path (see railway.json's healthcheckPath for the explicit config) — keep
+// this as a defensive fallback so an unconfigured root-path check doesn't
+// 404 and get misread as "deploy failed".
+app.get("/", (_req, res) => {
+  res.status(200).json({ ok: true, service: "agent-runner" });
+});
+
 app.use("/jobs", requireSharedSecret, jobsRouter);
 
 const PORT = Number(process.env.PORT ?? 8080);
