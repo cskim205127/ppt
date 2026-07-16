@@ -6,8 +6,8 @@ FROM node:20-bookworm AS builder
 WORKDIR /app
 
 # ---- Server deps ----
-COPY package.json ./
-RUN npm install --omit=dev=false
+COPY package.json package-lock.json ./
+RUN npm ci
 
 # ---- Deck-rendering deps, pre-baked so no job ever needs network/npm ----
 # (pptxgenjs/react/react-dom/react-icons/sharp — sharp is a native binary,
@@ -25,14 +25,16 @@ FROM node:20-bookworm
 
 WORKDIR /app
 
-# LibreOffice + Poppler restore the pptx skill's REQUIRED visual QA step
-# (soffice.py render -> pdftoppm -> image inspection) that wasn't possible
-# on the Windows dev machine this pipeline was originally hand-built on.
-# fonts-noto-cjk backs the Noto Sans KR font override (see sources-to-deck
-# skill override — Malgun Gothic isn't redistributable here).
-# git is required by `claude plugin marketplace add` (clones the repo).
+# LibreOffice (Impress component only, not the full office suite — much
+# smaller/faster to install and all we need for pptx->pdf) + Poppler
+# restore the pptx skill's REQUIRED visual QA step (soffice.py render ->
+# pdftoppm -> image inspection) that wasn't possible on the Windows dev
+# machine this pipeline was originally hand-built on. fonts-noto-cjk backs
+# the Noto Sans KR font override (see sources-to-deck skill override —
+# Malgun Gothic isn't redistributable here). git is required by
+# `claude plugin marketplace add` (clones the repo).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      libreoffice \
+      libreoffice-impress \
       poppler-utils \
       python3 \
       python3-pip \
@@ -58,7 +60,7 @@ COPY package.json ./
 
 RUN mkdir -p /app/workspace/jobs && \
     useradd --uid 1001 --create-home runner && \
-    chown -R runner:runner /app /usr/lib/node_modules
+    chown -R runner:runner /app
 
 USER runner
 
