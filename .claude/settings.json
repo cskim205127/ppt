@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "defaultMode": "dontAsk",
+    "allow": [
+      "Bash(yt-dlp *)",
+      "Bash(python scripts/yt_transcript.py *)",
+      "Bash(python -m markitdown *)",
+      "Bash(python scripts/office/soffice.py *)",
+      "Bash(python scripts/office/*.py *)",
+      "Bash(pdftoppm *)",
+      "Bash(node *)",
+      "Read",
+      "Write",
+      "Edit",
+      "Glob",
+      "Grep"
+    ]
+  },
+  "enabledPlugins": {
+    "document-skills@anthropic-agent-skills": true
+  }
+}
