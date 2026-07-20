@@ -132,5 +132,24 @@ export async function generateOutline(videoTitle: string, transcript: string): P
     throw new Error("OpenAI returned no content for outline generation");
   }
 
-  return JSON.parse(content) as DeckOutline;
+  return normalizeOutline(JSON.parse(content) as DeckOutline);
+}
+
+/**
+ * The JSON schema enforces per-slide shape but not deck-level invariants
+ * like "exactly one summary slide, and it's last" — observed in practice:
+ * the model sometimes emits two summary-type slides back to back. Demote
+ * every summary-type slide except the true last one to a plain bullets
+ * slide (reusing its takeaways as bullets) rather than trusting the prompt
+ * instruction alone.
+ */
+function normalizeOutline(outline: DeckOutline): DeckOutline {
+  const lastIndex = outline.slides.length - 1;
+  const slides = outline.slides.map((slide, i) => {
+    if (slide.type === "summary" && i !== lastIndex) {
+      return { ...slide, type: "bullets" as const, bullets: slide.takeaways ?? slide.bullets };
+    }
+    return slide;
+  });
+  return { ...outline, slides };
 }
