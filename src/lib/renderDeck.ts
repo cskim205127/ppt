@@ -275,14 +275,19 @@ function buildBulletsSlide(
   const s = pres.addSlide();
   s.background = { color: dark ? NAVY : LIGHT_BG };
   stepTag(s, slideNum, total, dark);
-  slideTitle(s, slide.title, { dark, y: 0.78, fontSize: 26 });
+  slideTitle(s, slide.title, { dark, y: 0.78, fontSize: 25 });
 
+  // Icon as a small corner accent (not a width-eating column) — bullets now
+  // carry real substance (numbers/examples from the source), so they get
+  // the full slide width and generous height instead of a narrow half-column
+  // sized for short punchy one-liners.
   const iconKey = ["lightbulb", "chart", "cogs", "info", "check"][(slideNum - 3) % 5];
-  const cx = 0.55, cy = 2.15, cw = 5.6, chh = 4.3;
-  s.addShape("ellipse" as pptxgen.ShapeType, { x: cx, y: cy, w: 1.0, h: 1.0, fill: { color: dark ? NAVY_PANEL_2 : CORAL_TINT }, line: { type: "none" } });
-  s.addImage({ data: icons[iconKey], x: cx + 0.24, y: cy + 0.24, w: 0.52, h: 0.52 });
+  s.addShape("ellipse" as pptxgen.ShapeType, {
+    x: W - 1.35, y: 0.72, w: 0.6, h: 0.6, fill: { color: dark ? NAVY_PANEL_2 : CORAL_TINT }, line: { type: "none" },
+  });
+  s.addImage({ data: icons[iconKey], x: W - 1.2, y: 0.87, w: 0.3, h: 0.3 });
 
-  bulletBlock(s, slide.bullets ?? [], { x: 0.55, y: cy + 1.3, w: cw, h: chh - 1.3, dark, fontSize: 15.5 });
+  bulletBlock(s, slide.bullets ?? [], { x: 0.55, y: 2.0, w: 12.2, h: 4.5, dark, fontSize: 15.5 });
 
   if (detailTargetSlide !== undefined) {
     addDetailLink(s, detailTargetSlide);
@@ -303,20 +308,20 @@ function buildComparisonSlide(
   stepTag(s, slideNum, total, false);
   slideTitle(s, slide.title, { y: 0.78, fontSize: 26 });
 
-  const cy = 2.15, cw = 5.85, ch = 4.0, gap = 0.35;
+  const cy = 2.15, cw = 5.85, ch = 4.3, gap = 0.35;
   const leftItems = slide.leftItems ?? [];
   const rightItems = slide.rightItems ?? [];
 
   panel(s, 0.55, cy, cw, ch, CARD_BG);
   s.addShape("rect" as pptxgen.ShapeType, { x: 0.55, y: cy, w: 0.09, h: ch, fill: { color: CORAL_DARK }, line: { type: "none" } });
   s.addText(slide.leftLabel || "A", { x: 0.95, y: cy + 0.25, w: cw - 1.2, h: 0.45, fontFace: FONT, fontSize: 17, bold: true, color: NAVY, margin: 0 });
-  bulletBlock(s, leftItems, { x: 0.95, y: cy + 0.85, w: cw - 1.3, h: ch - 1.1, fontSize: 14 });
+  bulletBlock(s, leftItems, { x: 0.95, y: cy + 0.85, w: cw - 1.3, h: ch - 1.1, fontSize: 13.5 });
 
   const sx = 0.55 + cw + gap;
   panel(s, sx, cy, cw, ch, CARD_BG);
   s.addShape("rect" as pptxgen.ShapeType, { x: sx, y: cy, w: 0.09, h: ch, fill: { color: GOOD_GREEN }, line: { type: "none" } });
   s.addText(slide.rightLabel || "B", { x: sx + 0.4, y: cy + 0.25, w: cw - 1.2, h: 0.45, fontFace: FONT, fontSize: 17, bold: true, color: NAVY, margin: 0 });
-  bulletBlock(s, rightItems, { x: sx + 0.4, y: cy + 0.85, w: cw - 1.3, h: ch - 1.1, fontSize: 14 });
+  bulletBlock(s, rightItems, { x: sx + 0.4, y: cy + 0.85, w: cw - 1.3, h: ch - 1.1, fontSize: 13.5 });
 
   if (detailTargetSlide !== undefined) {
     addDetailLink(s, detailTargetSlide);
