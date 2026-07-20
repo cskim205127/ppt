@@ -1,9 +1,10 @@
 import express from "express";
 import jobsRouter from "./routes/jobs";
+import pipelineRouter from "./routes/pipeline";
 import { requireSharedSecret } from "./lib/auth";
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: "2mb" }));
 
 app.get("/healthz", (_req, res) => {
   res.status(200).json({ ok: true });
@@ -18,6 +19,7 @@ app.get("/", (_req, res) => {
 });
 
 app.use("/jobs", requireSharedSecret, jobsRouter);
+app.use(requireSharedSecret, pipelineRouter);
 
 const PORT = Number(process.env.PORT ?? 8080);
 app.listen(PORT, () => {
