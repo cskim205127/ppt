@@ -1,9 +1,10 @@
-import { Router } from "express";
+import { Router, raw } from "express";
 import fs from "fs";
 import os from "os";
 import path from "path";
 import { randomUUID } from "crypto";
 import { extractTranscript } from "../lib/transcript";
+import { extractPdfText } from "../lib/pdfExtract";
 import { renderDeck } from "../lib/renderDeck";
 import type { DeckOutline } from "../lib/outline";
 
@@ -34,6 +35,32 @@ router.post("/transcript", async (req, res) => {
     res.status(502).json({ error: String(err instanceof Error ? err.message : err) });
   } finally {
     fs.rmSync(scratchDir, { recursive: true, force: true });
+  }
+});
+
+/**
+ * Raw-body route: n8n's HTTP Request node (contentType: 'binaryData') posts
+ * the uploaded PDF's bytes directly as the request body, not JSON — this
+ * route-specific `raw()` middleware runs instead of the app-level
+ * express.json() (which only engages for an `application/json` content
+ * type and otherwise no-ops), so req.body here is the raw file Buffer.
+ * The original filename (if any) travels via a query param since it isn't
+ * part of the binary body itself.
+ */
+router.post("/pdf-extract", raw({ type: "*/*", limit: "20mb" }), async (req, res) => {
+  const buffer = req.body;
+  if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
+    res.status(400).json({ error: "Request body must be the raw PDF file bytes" });
+    return;
+  }
+
+  const filename = typeof req.query.filename === "string" ? req.query.filename : undefined;
+
+  try {
+    const result = await extractPdfText(buffer, filename);
+    res.json(result);
+  } catch (err) {
+    res.status(502).json({ error: String(err instanceof Error ? err.message : err) });
   }
 });
 
