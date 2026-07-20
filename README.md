@@ -1,45 +1,43 @@
 # agent-runner
 
-n8n → HTTP → 이 서비스 → Claude Agent SDK(`sources-to-deck` + `pptx` 스킬) → `.pptx`.
-설계 배경은 `C:\Users\oa00241\.claude\plans\n8n-mcp-youtube-glimmering-bachman.md` 참고.
+n8n → HTTP → 이 서비스 → yt-dlp(자막 추출) → OpenAI(구조화 출력으로 슬라이드 개요 생성, 항상 한국어) → pptxgenjs 템플릿 렌더링 → `.pptx`.
 
-## 현재 상태 (2026-07-16)
+Railway 배포: https://ppt-production-cfef.up.railway.app (project `b268b2f8-5a21-4ca4-adbf-e6c5507e54c6`, service `ppt`)
 
-**빌드됨, 로컬(Windows, Docker 없이) HTTP 레이어까지만 검증됨.**
+## 아키텍처 변경 이력
 
-검증 완료:
-- `npm install` / `tsc --noEmit` / `npm run build` 모두 통과
-- `POST /jobs` 인증(Bearer) — 401 확인
-- `POST /jobs` URL 검증 — 400 확인
-- `POST /jobs` 정상 요청 → 202 즉시 아님, 201 + jobId 즉시 응답 → 백그라운드로 `runDeckJob` 트리거됨 확인
-- `GET /jobs/:id` 상태 조회 확인
-- `GET /healthz` 확인
+**v1 (2026-07-16)**: Claude Agent SDK + `sources-to-deck`/`pptx` 스킬 기반. 서버/인증/잡 라이프사이클까지 Railway에 완전히 배포되어 검증됐으나, Anthropic Console 결제가 끝내 활성화되지 않아 실제 LLM 호출은 검증하지 못함.
 
-**검증 못 함 (이 개발 머신의 한계, 코드 결함 아님):**
-- 실제 Claude Agent SDK `query()` 호출 — 이 세션이 실행되는 샌드박스 자체가 임의 프로세스 spawn을 막고 있어서(`EPERM: operation not permitted, uv_spawn ...`) SDK가 내부적으로 CLI 프로세스를 띄우는 지점에서 즉시 실패함. Docker 컨테이너(샌드박스 밖)에서는 이 제약이 없을 것으로 예상하지만 **실측 전까지 가정일 뿐**.
-- yt-dlp / LibreOffice / Poppler 연동 — 이 머신에 Docker Desktop이 설치되어 있지 않아 Dockerfile을 한 번도 빌드해보지 못함.
-- 전체 파이프라인(자막→번역→렌더링→QA) 품질 — 위 두 가지가 막혀 있어 미검증.
+**v2 (2026-07-20, 현재)**: OpenAI 기반으로 전면 재설계. 사용자가 이미 OpenAI 크레딧을 보유하고 있어 전환. 에이전트가 즉흥적으로 다이어그램을 설계하던 방식 대신, **OpenAI가 슬라이드 개요(JSON, structured output)를 만들고 코드가 정해진 템플릿 라이브러리로 결정적으로 렌더링**하는 방식으로 바뀜 — 품질은 템플릿 다양성(bullets/comparison/process/summary + 상세링크 슬라이드)에 의존하며, v1처럼 매번 즉흥적인 커스텀 다이어그램이 나오지는 않음. n8n 워크플로우와 Agent Runner의 HTTP API(잡 생성/폴링) 구조는 LLM 프로바이더에 무관하게 그대로 유지됨.
 
-## 다음에 필요한 것
+## 파이프라인
 
-1. **Docker Desktop 설치** (이 머신 또는 배포 대상 머신에). WSL2 백엔드도 함께 필요 — `wsl --install` 먼저.
-2. `.env` 파일 생성 (`.env.example` 참고) — 특히 `ANTHROPIC_API_KEY` 실제 값 필요.
-3. `docker build -t agent-runner .`
-4. `docker run --env-file .env -p 8080:8080 agent-runner`
-5. plan 문서의 "마일스톤 3" 커맨드로 실제 유튜브 URL 한 번 돌려서 나온 pptx를 직접 열어 품질 확인.
+1. `lib/transcript.ts` — yt-dlp로 자막 추출 (언어 무관, en/ko 우선 시도 후 전체 폴백)
+2. `lib/outline.ts` — OpenAI structured output으로 `{title, subtitle, eyebrow, slides[]}` JSON 생성. 슬라이드 타입: `bullets`/`comparison`/`process`/`summary`. 항상 한국어로 재구성 (직역 아님). 일부 슬라이드는 `hasDetail=true`로 표시되어 별도 상세 슬라이드 생성 대상이 됨.
+3. `lib/renderDeck.ts` — pptxgenjs로 표지+아젠다+본문 슬라이드+(있으면)상세 슬라이드를 렌더링. 상세 슬라이드는 원본 슬라이드에서 하이퍼링크로 연결되고, 상세 슬라이드에는 "메인으로 돌아가기" 버튼이 있음 (`slide: N` 하이퍼링크, pptxgenjs 지원).
+4. `lib/openaiRunner.ts` — 위 세 단계를 순서대로 실행하는 오케스트레이터. `routes/jobs.ts`가 호출.
+
+## 환경변수
+
+`.env.example` 참고. 필수: `OPENAI_API_KEY`, `RUNNER_SHARED_SECRET`.
 
 ## 디렉터리
+
 ```
 src/
-  server.ts        Express 부트스트랩
-  routes/jobs.ts    POST /jobs, GET /jobs/:id, GET /jobs/:id/file
-  lib/claudeRunner.ts   query() 래퍼 — 성공 판정은 텍스트 파싱이 아니라
-                        job.outputPath 파일 존재 여부
-  lib/promptTemplate.ts 잡별 프롬프트 (언어 무관 한국어 강제 포함)
-  lib/jobStore.ts    인메모리 잡 상태 (v1: 컨테이너 재시작 시 유실됨, 알려진 한계)
-  lib/auth.ts        Bearer 공유시크릿 미들웨어
-  config/allowedTools.ts  무인 실행 허용 도구 목록 — .claude/settings.json과 반드시 동기화
-.claude/
-  settings.json      permissionMode: dontAsk + 허용목록 (2026-07-16 사용자 명시 승인 하에 작성)
-  skills/            sources-to-deck / pptx / pdf 벤더링 (폰트: Malgun Gothic → Noto Sans KR로 전환)
+  server.ts             Express 부트스트랩
+  routes/jobs.ts         POST /jobs, GET /jobs/:id, GET /jobs/:id/file
+  lib/openaiRunner.ts     파이프라인 오케스트레이터 (전체 흐름의 진입점)
+  lib/transcript.ts       yt-dlp 자막 추출
+  lib/outline.ts          OpenAI 구조화 출력 → 슬라이드 개요
+  lib/renderDeck.ts       pptxgenjs 템플릿 렌더러 (표지/아젠다/본문/상세/서머리)
+  lib/icons.ts            react-icons + sharp 아이콘 래스터라이즈
+  lib/jobStore.ts         인메모리 잡 상태 (v1: 컨테이너 재시작 시 유실됨, 알려진 한계)
+  lib/auth.ts             Bearer 공유시크릿 미들웨어
 ```
+
+## 알려진 v1 갭 (필요해지면 추후 개선)
+
+- 잡 상태가 인메모리라 컨테이너 재시작 시 진행 중이던 잡 정보 유실
+- `costUsd`는 항상 미계산 (OpenAI 토큰 단가를 하드코딩하지 않기 위해 의도적으로 생략 — n8n 이메일 템플릿에서 이 필드를 참조한다면 업데이트 필요)
+- 렌더링 후 자동 시각 QA 없음 (v1의 LibreOffice 렌더+AI 재검토 루프가 없음) — 대신 템플릿을 여유있는 여백/폰트 크기로 보수적으로 설계해 안전하게 구성

@@ -3,3 +3,4 @@ dist/
 workspace/
 *.log
 .env
+test-output.pptx

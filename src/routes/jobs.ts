@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { randomUUID } from "crypto";
 import { createJob, getJob, updateJob } from "../lib/jobStore";
-import { runDeckJob } from "../lib/claudeRunner";
+import { runDeckJob } from "../lib/openaiRunner";
 
 const router = Router();
 
@@ -36,7 +36,12 @@ router.post("/", (req, res) => {
   runDeckJob(job)
     .then((result) => {
       if (result.success) {
-        updateJob(jobId, { status: "succeeded", costUsd: result.costUsd, numTurns: result.numTurns });
+        updateJob(jobId, {
+          status: "succeeded",
+          videoTitle: result.videoTitle,
+          costUsd: result.costUsd,
+          numTurns: result.numTurns,
+        });
       } else {
         updateJob(jobId, {
           status: "failed",

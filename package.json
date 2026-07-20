@@ -1,7 +1,7 @@
 {
   "name": "agent-runner",
-  "version": "0.1.0",
-  "description": "HTTP service that runs a Claude Agent SDK session to turn a YouTube URL into a Korean .pptx deck (sources-to-deck + pptx skills).",
+  "version": "0.2.0",
+  "description": "HTTP service that turns a YouTube URL into a Korean .pptx deck: yt-dlp extraction -> OpenAI structured outline -> deterministic pptxgenjs template rendering.",
   "private": true,
   "type": "commonjs",
   "main": "dist/server.js",
@@ -11,13 +11,20 @@
     "start": "node dist/server.js"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.3.211",
     "express": "^4.21.2",
+    "openai": "^6.48.0",
+    "pptxgenjs": "^4.0.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-icons": "^5.7.0",
+    "sharp": "^0.35.3",
     "uuid": "^9.0.1"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^20.14.10",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
     "@types/uuid": "^9.0.8",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.5.4"
