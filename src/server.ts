@@ -7,7 +7,12 @@ const app = express();
 app.use(express.json({ limit: "2mb" }));
 
 app.get("/healthz", (_req, res) => {
-  res.status(200).json({ ok: true });
+  const cookies = process.env.YTDLP_COOKIES;
+  res.status(200).json({
+    ok: true,
+    ytdlpCookiesConfigured: !!cookies,
+    ytdlpCookiesLineCount: cookies ? cookies.split("\n").length : 0,
+  });
 });
 
 // Some PaaS health checks probe "/" by default rather than a configured
