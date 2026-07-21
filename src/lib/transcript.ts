@@ -31,9 +31,20 @@ function withCookies(args: string[]): string[] {
   return cookiesPath ? ["--cookies", cookiesPath, ...args] : args;
 }
 
+/**
+ * YouTube's "n challenge" (JS-based anti-bot puzzle) requires yt-dlp to run
+ * a challenge-solving script under a JS runtime (deno, installed in the
+ * Dockerfile). yt-dlp doesn't auto-download that solver script unless
+ * explicitly told to via --remote-components — without it, format
+ * extraction silently degrades to "images only" and fails.
+ */
+function withRemoteComponents(args: string[]): string[] {
+  return ["--remote-components", "ejs:github", ...args];
+}
+
 async function run(args: string[]): Promise<{ stdout: string; stderr: string; code: number }> {
   try {
-    const { stdout, stderr } = await execFileAsync("yt-dlp", withCookies(args), { maxBuffer: 1024 * 1024 * 50 });
+    const { stdout, stderr } = await execFileAsync("yt-dlp", withRemoteComponents(withCookies(args)), { maxBuffer: 1024 * 1024 * 50 });
     return { stdout, stderr, code: 0 };
   } catch (err: any) {
     return { stdout: err.stdout ?? "", stderr: err.stderr ?? String(err), code: err.code ?? 1 };
