@@ -17,14 +17,20 @@ FROM node:20-bookworm
 WORKDIR /app
 
 # python3/pip for yt-dlp. fonts-noto-cjk backs the Noto Sans KR font used
-# throughout the deck (Korean glyph coverage in a Linux container).
+# throughout the deck (Korean glyph coverage in a Linux container). curl is
+# needed to install deno, which yt-dlp uses as its JS runtime for YouTube's
+# signature/PO-token extraction (without one, extraction is degraded/blocked).
 RUN apt-get update && apt-get install -y --no-install-recommends \
       python3 \
       python3-pip \
       fonts-noto-cjk \
+      curl \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --break-system-packages --no-cache-dir yt-dlp
+
+RUN curl -fsSL https://deno.land/install.sh | sh -s -- -y --no-modify-path \
+    && mv /root/.deno/bin/deno /usr/local/bin/deno
 
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist

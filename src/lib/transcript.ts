@@ -1,6 +1,7 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
 import fs from "fs";
+import os from "os";
 import path from "path";
 
 const execFileAsync = promisify(execFile);
@@ -11,9 +12,28 @@ export interface TranscriptResult {
   transcript: string;
 }
 
+/**
+ * Railway's server IPs get flagged as bots by YouTube ("Sign in to confirm
+ * you're not a bot"), so yt-dlp needs real browser cookies to authenticate.
+ * YTDLP_COOKIES holds the raw Netscape-format cookies.txt content (exported
+ * from a logged-in browser session) as an env var; written to disk once and
+ * reused across requests since it doesn't change per-request.
+ */
+const cookiesPath = (() => {
+  const raw = process.env.YTDLP_COOKIES;
+  if (!raw) return undefined;
+  const p = path.join(os.tmpdir(), "yt-dlp-cookies.txt");
+  fs.writeFileSync(p, raw, "utf-8");
+  return p;
+})();
+
+function withCookies(args: string[]): string[] {
+  return cookiesPath ? ["--cookies", cookiesPath, ...args] : args;
+}
+
 async function run(args: string[]): Promise<{ stdout: string; stderr: string; code: number }> {
   try {
-    const { stdout, stderr } = await execFileAsync("yt-dlp", args, { maxBuffer: 1024 * 1024 * 50 });
+    const { stdout, stderr } = await execFileAsync("yt-dlp", withCookies(args), { maxBuffer: 1024 * 1024 * 50 });
     return { stdout, stderr, code: 0 };
   } catch (err: any) {
     return { stdout: err.stdout ?? "", stderr: err.stderr ?? String(err), code: err.code ?? 1 };
